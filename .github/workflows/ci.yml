@@ -100,7 +100,7 @@ jobs:
   secrets-scan:
     name: "Secrets Detection (TruffleHog)"
     runs-on: ubuntu-latest
-    needs: test
+    # needs: test
     steps:
       - name: Checkout full git history
         uses: actions/checkout@v4
@@ -132,7 +132,7 @@ jobs:
   # ======================================================================
 
   build:
-    name: "Etap 1 — Build Docker"
+    name: "Build Docker"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
