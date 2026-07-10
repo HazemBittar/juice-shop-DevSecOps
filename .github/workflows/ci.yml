@@ -17,6 +17,90 @@ env:
   IMAGE: ghcr.io/${{ github.repository_owner }}/juice-shop-devsecops
 
 jobs:
+
+  # ======================================================================
+  # ETAP 2a — SCA: skan bibliotek i zależności (npm audit)
+  # ======================================================================
+  sca:
+    name: "run SCA (npm audit)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: update lockfile 
+        run: npm install --package-lock-only --ignore-scripts --no-fund --no-audit
+      - name: npm audit (High/Critical)
+        run: |
+          echo "## SCA — npm audit (High/Critical)" >> "$GITHUB_STEP_SUMMARY"
+          npm audit --audit-level=high || true
+          npm audit --json > npm-audit.json || true
+          node -e "const a=require('./npm-audit.json');const m=a.metadata.vulnerabilities;console.log('| level | number |\n|---|---|\n| critical | '+m.critical+' |\n| high | '+m.high+' |\n| moderate | '+m.moderate+' |')" >> "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sca-npm-audit
+          path: npm-audit.json
+
+
+   # ======================================================================
+  # Run — SAST:(Semgrep)
+  # ======================================================================
+  sast:
+    name: "Run — SAST (Semgrep)"
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep:latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Semgrep (OWASP Top Ten + JS/TS)
+        run: |
+          semgrep --config p/owasp-top-ten --config p/javascript --config p/typescript \
+                  --config p/secrets --metrics off --sarif --output semgrep.sarif \
+                  --exclude frontend/dist --exclude node_modules . || true
+          semgrep --config p/owasp-top-ten --config p/javascript --config p/typescript \
+                  --config p/secrets --metrics off --json --output semgrep.json \
+                  --exclude frontend/dist --exclude node_modules . || true
+          echo "## SAST — Semgrep" >> "$GITHUB_STEP_SUMMARY"
+          node -e "const r=require('./semgrep.json');const n=r.results.length;const err=r.results.filter(x=>x.extra.severity==='ERROR').length;console.log('Znaleziska: '+n+' (w tym ERROR/High: '+err+')')" >> "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sast-semgrep
+          path: |
+            semgrep.sarif
+            semgrep.json
+      - name: upload SARIF do GitHub Code Scanning
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep.sarif
+        continue-on-error: true
+
+  # ======================================================================
+  # Run — Secrets Scan:(Gitleaks)
+  # ======================================================================
+  secrets:
+    name: "scan — Secrets (Gitleaks)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Gitleaks 
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/repo" \
+            ghcr.io/gitleaks/gitleaks:latest dir /repo \
+            --report-format sarif --report-path /repo/gitleaks.sarif --redact -v || true
+          echo "## Secrets — Gitleaks" >> "$GITHUB_STEP_SUMMARY"
+          node -e "try{const r=require('./gitleaks.sarif');const n=r.runs[0].results.length;console.log('Secret detected: '+n)}catch(e){console.log('raport ')}" >> "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: secrets-gitleaks
+          path: gitleaks.sarif
+
+ # ======================================================================
+  # Build Docker Image
+  # ======================================================================
+
   build:
     name: "Etap 1 — Build Docker"
     runs-on: ubuntu-latest
