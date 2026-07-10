@@ -18,7 +18,7 @@ env:
 
 jobs:
   build:
-    name: "Etap 1 — Build obrazu Docker"
+    name: "Etap 1 — Build Docker"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,10 +27,42 @@ jobs:
           docker build -t app:ci \
             --build-arg BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
             --build-arg VCS_REF=${{ github.sha }} .
-      - name: Zapisz obraz jako artefakt
+      - name: upload image 
         run: docker save app:ci -o image.tar
       - uses: actions/upload-artifact@v4
         with:
           name: docker-image
           path: image.tar
           retention-days: 1
+
+# ======================================================================
+  run trivy scanner 
+# ======================================================================
+  trivy:
+    name: "SCA (Trivy)"
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+      - name: Trivy — scanner (HIGH,CRITICAL)
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/work" \
+            aquasec/trivy:latest image --input /work/image.tar \
+            --severity HIGH,CRITICAL --scanners vuln --no-progress \
+            --format table --output /work/trivy-report.txt
+          docker run --rm -v "${{ github.workspace }}:/work" \
+            aquasec/trivy:latest image --input /work/image.tar \
+            --severity HIGH,CRITICAL --scanners vuln --no-progress \
+            --format sarif --output /work/trivy.sarif || true
+          echo "## Trivy — scanner (HIGH,CRITICAL)" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          tail -n 50 trivy-report.txt >> "$GITHUB_STEP_SUMMARY" || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: trivy
+          path: |
+            trivy-report.txt
+            trivy.sarif
