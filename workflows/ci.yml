@@ -21,7 +21,7 @@ permissions:
 
 env:
   IMAGE_NAME: ghcr.io/${{ github.repository }}/juice-shop
-  IMAGE_TAG: latest
+  IMAGE_TAG: latest-${{ github.sha }}
 
 jobs:
   
