@@ -16,6 +16,7 @@ permissions:
 env:
   IMAGE: ghcr.io/${{ github.repository_owner }}/juice-shop-devsecops
 
+jobs:
 
 build:
   name: "Build Docker image"
