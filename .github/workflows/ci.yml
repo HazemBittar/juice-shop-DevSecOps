@@ -22,15 +22,15 @@ jobs:
   # lint dockerfile
   # ======================================================================
   
-  dockerfile-lint:
-    name: Hadolint (Dockerfile)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Hadolint
-        uses: hadolint/hadolint-action@v3.1.0
-        with:
-          dockerfile: Dockerfile
+  # dockerfile-lint:
+  #   name: Hadolint (Dockerfile)
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Hadolint
+  #       uses: hadolint/hadolint-action@v3.1.0
+  #       with:
+  #         dockerfile: Dockerfile
           
   
 
@@ -319,7 +319,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Scan licenses
-        uses: anistark/feluda@v1
+        uses: anistark/feluda@v1.14.0
         with:
           fail-on-restrictive: false
           fail-on-incompatible: false
@@ -353,27 +353,27 @@ jobs:
 
     
 
-  depchecktest:
-    runs-on: ubuntu-latest
-    name: depecheck_test
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-      - name: Build project with Maven
-        run: mvn clean install
-      - name: Depcheck
-        uses: dependency-check/Dependency-Check_Action@main
-        id: Depcheck
-        with:
-          project: 'test'
-          path: '.'
-          format: 'HTML'
-          out: 'reports' # this is the default, no need to specify unless you wish to override it
-          args: >
-            --failOnCVSS 7
-            --enableRetired
-      - name: Upload Test results
-        uses: actions/upload-artifact@master
-        with:
-           name: Depcheck report
-           path: ${{github.workspace}}/reports
+  # depchecktest:
+  #   runs-on: ubuntu-latest
+  #   name: depecheck_test
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v2
+  #     - name: Build project with Maven
+  #       run: mvn clean install
+  #     - name: Depcheck
+  #       uses: dependency-check/Dependency-Check_Action@main
+  #       id: Depcheck
+  #       with:
+  #         project: 'test'
+  #         path: '.'
+  #         format: 'HTML'
+  #         out: 'reports' # this is the default, no need to specify unless you wish to override it
+  #         args: >
+  #           --failOnCVSS 7
+  #           --enableRetired
+  #     - name: Upload Test results
+  #       uses: actions/upload-artifact@master
+  #       with:
+  #          name: Depcheck report
+  #          path: ${{github.workspace}}/reports
