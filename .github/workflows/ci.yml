@@ -77,112 +77,112 @@ jobs:
   
   
   
-  sca:
-    name: "run SCA (npm audit)"
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-      - name: update lockfile 
-        run: npm install --package-lock-only --ignore-scripts --no-fund --no-audit
-      - name: npm audit (High/Critical)
-        run: |
-          echo "## SCA — npm audit (High/Critical)" >> "$GITHUB_STEP_SUMMARY"
-          npm audit --audit-level=high || true
-          npm audit --json > npm-audit.json || true
-          node -e "const a=require('./npm-audit.json');const m=a.metadata.vulnerabilities;console.log('| level | number |\n|---|---|\n| critical | '+m.critical+' |\n| high | '+m.high+' |\n| moderate | '+m.moderate+' |')" >> "$GITHUB_STEP_SUMMARY" || true
-      - uses: actions/upload-artifact@v4
-        with:
-          name: sca-npm-audit
-          path: npm-audit.json
+  # sca:
+  #   name: "run SCA (npm audit)"
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: "22"
+  #     - name: update lockfile 
+  #       run: npm install --package-lock-only --ignore-scripts --no-fund --no-audit
+  #     - name: npm audit (High/Critical)
+  #       run: |
+  #         echo "## SCA — npm audit (High/Critical)" >> "$GITHUB_STEP_SUMMARY"
+  #         npm audit --audit-level=high || true
+  #         npm audit --json > npm-audit.json || true
+  #         node -e "const a=require('./npm-audit.json');const m=a.metadata.vulnerabilities;console.log('| level | number |\n|---|---|\n| critical | '+m.critical+' |\n| high | '+m.high+' |\n| moderate | '+m.moderate+' |')" >> "$GITHUB_STEP_SUMMARY" || true
+  #     - uses: actions/upload-artifact@v4
+  #       with:
+  #         name: sca-npm-audit
+  #         path: npm-audit.json
 
 
    # ======================================================================
   # Run — SAST:(Semgrep)
   # ======================================================================
-  sast:
-    name: "Run — SAST (Semgrep)"
-    runs-on: ubuntu-latest
-    container:
-      image: semgrep/semgrep:latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Semgrep (OWASP Top Ten + JS/TS)
-        run: |
-          semgrep --config p/owasp-top-ten --config p/javascript --config p/typescript \
-                  --config p/secrets --metrics off --sarif --output semgrep.sarif \
-                  --exclude frontend/dist --exclude node_modules . || true
-          semgrep --config p/owasp-top-ten --config p/javascript --config p/typescript \
-                  --config p/secrets --metrics off --json --output semgrep.json \
-                  --exclude frontend/dist --exclude node_modules . || true
-          echo "## SAST — Semgrep" >> "$GITHUB_STEP_SUMMARY"
-          node -e "const r=require('./semgrep.json');const n=r.results.length;const err=r.results.filter(x=>x.extra.severity==='ERROR').length;console.log('Znaleziska: '+n+' (w tym ERROR/High: '+err+')')" >> "$GITHUB_STEP_SUMMARY" || true
-      - uses: actions/upload-artifact@v4
-        with:
-          name: sast-semgrep
-          path: |
-            semgrep.sarif
-            semgrep.json
-      - name: upload SARIF do GitHub Code Scanning
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: semgrep.sarif
-        continue-on-error: true
+  # sast:
+  #   name: "Run — SAST (Semgrep)"
+  #   runs-on: ubuntu-latest
+  #   container:
+  #     image: semgrep/semgrep:latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Semgrep (OWASP Top Ten + JS/TS)
+  #       run: |
+  #         semgrep --config p/owasp-top-ten --config p/javascript --config p/typescript \
+  #                 --config p/secrets --metrics off --sarif --output semgrep.sarif \
+  #                 --exclude frontend/dist --exclude node_modules . || true
+  #         semgrep --config p/owasp-top-ten --config p/javascript --config p/typescript \
+  #                 --config p/secrets --metrics off --json --output semgrep.json \
+  #                 --exclude frontend/dist --exclude node_modules . || true
+  #         echo "## SAST — Semgrep" >> "$GITHUB_STEP_SUMMARY"
+  #         node -e "const r=require('./semgrep.json');const n=r.results.length;const err=r.results.filter(x=>x.extra.severity==='ERROR').length;console.log('Znaleziska: '+n+' (w tym ERROR/High: '+err+')')" >> "$GITHUB_STEP_SUMMARY" || true
+  #     - uses: actions/upload-artifact@v4
+  #       with:
+  #         name: sast-semgrep
+  #         path: |
+  #           semgrep.sarif
+  #           semgrep.json
+  #     - name: upload SARIF do GitHub Code Scanning
+  #       uses: github/codeql-action/upload-sarif@v3
+  #       with:
+  #         sarif_file: semgrep.sarif
+  #       continue-on-error: true
 
   # ======================================================================
   # Run — Secrets Scan:(Gitleaks)
   # ======================================================================
-  secrets:
-    name: "scan — Secrets (Gitleaks)"
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Gitleaks 
-        run: |
-          docker run --rm -v "${{ github.workspace }}:/repo" \
-            ghcr.io/gitleaks/gitleaks:latest dir /repo \
-            --report-format sarif --report-path /repo/gitleaks.sarif --redact -v || true
-          echo "## Secrets — Gitleaks" >> "$GITHUB_STEP_SUMMARY"
-          node -e "try{const r=require('./gitleaks.sarif');const n=r.runs[0].results.length;console.log('Secret detected: '+n)}catch(e){console.log('raport ')}" >> "$GITHUB_STEP_SUMMARY" || true
-      - uses: actions/upload-artifact@v4
-        with:
-          name: secrets-gitleaks
-          path: gitleaks.sarif
+  # secrets:
+  #   name: "scan — Secrets (Gitleaks)"
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #       with:
+  #         fetch-depth: 0
+  #     - name: Gitleaks 
+  #       run: |
+  #         docker run --rm -v "${{ github.workspace }}:/repo" \
+  #           ghcr.io/gitleaks/gitleaks:latest dir /repo \
+  #           --report-format sarif --report-path /repo/gitleaks.sarif --redact -v || true
+  #         echo "## Secrets — Gitleaks" >> "$GITHUB_STEP_SUMMARY"
+  #         node -e "try{const r=require('./gitleaks.sarif');const n=r.runs[0].results.length;console.log('Secret detected: '+n)}catch(e){console.log('raport ')}" >> "$GITHUB_STEP_SUMMARY" || true
+  #     - uses: actions/upload-artifact@v4
+  #       with:
+  #         name: secrets-gitleaks
+  #         path: gitleaks.sarif
 
   # ─── STAGE 3 : Secrets Detection ──────────────────────────────────────────
-  secrets-scan:
-    name: "Secrets Detection (TruffleHog)"
-    runs-on: ubuntu-latest
-    # needs: test
-    steps:
-      - name: Checkout full git history
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+  # secrets-scan:
+  #   name: "Secrets Detection (TruffleHog)"
+  #   runs-on: ubuntu-latest
+  #   # needs: test
+  #   steps:
+  #     - name: Checkout full git history
+  #       uses: actions/checkout@v4
+  #       with:
+  #         fetch-depth: 0
 
-      - name: Run TruffleHog secrets scan
-        uses: trufflesecurity/trufflehog@main
-        with:
-          path: ./
-          base: ${{ github.event.before }}
-          head: ${{ github.sha }}
-          extra_args: --only-verified --json
+  #     - name: Run TruffleHog secrets scan
+  #       uses: trufflesecurity/trufflehog@main
+  #       with:
+  #         path: ./
+  #         base: ${{ github.event.before }}
+  #         head: ${{ github.sha }}
+  #         extra_args: --only-verified --json
 
-      - name: Save secrets report
-        if: always()
-        run: |
-          echo '{"scanned_at":"'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'","findings":[]}' > secrets-report.json
+  #     - name: Save secrets report
+  #       if: always()
+  #       run: |
+  #         echo '{"scanned_at":"'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'","findings":[]}' > secrets-report.json
 
-      - name: Upload secrets report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: secrets-report
-          path: secrets-report.json
+  #     - name: Upload secrets report
+  #       uses: actions/upload-artifact@v4
+  #       if: always()
+  #       with:
+  #         name: secrets-report
+  #         path: secrets-report.json
 
  # ======================================================================
   # Build Docker Image
@@ -209,57 +209,68 @@ jobs:
 # ======================================================================
   # run trivy scanner 
 # ======================================================================
-  trivy:
-    name: "SCA (Trivy)"
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: docker-image
-      - name: Trivy — scanner (HIGH,CRITICAL)
-        run: |
-          docker run --rm -v "${{ github.workspace }}:/work" \
-            aquasec/trivy:latest image --input /work/image.tar \
-            --severity HIGH,CRITICAL --scanners vuln --no-progress \
-            --format table --output /work/trivy-report.txt
-          docker run --rm -v "${{ github.workspace }}:/work" \
-            aquasec/trivy:latest image --input /work/image.tar \
-            --severity HIGH,CRITICAL --scanners vuln --no-progress \
-            --format sarif --output /work/trivy.sarif || true
-          echo "## Trivy — scanner (HIGH,CRITICAL)" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          tail -n 50 trivy-report.txt >> "$GITHUB_STEP_SUMMARY" || true
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: trivy
-          path: |
-            trivy-report.txt
-            trivy.sarif
-
-
-
-  # sbom:
-  #   name: SBOM (Syft)
+  # trivy:
+  #   name: "SCA (Trivy)"
   #   runs-on: ubuntu-latest
+  #   needs: build
   #   steps:
-  #     - uses: actions/checkout@v4
-  #     - name: Generate SBOM (SPDX JSON)
-  #       uses: anchore/sbom-action@v0
+  #     - uses: actions/download-artifact@v4
   #       with:
-  #         path: /work/image.tar
-  #         format: spdx-json
-  #         artifact-name: sbom.spdx.json
-  #         output-file: sbom.spdx.json
-  #     - name: Upload SBOM artifact
-  #       uses: actions/upload-artifact@v4
+  #         name: docker-image
+  #     - name: Trivy — scanner (HIGH,CRITICAL)
+  #       run: |
+  #         docker run --rm -v "${{ github.workspace }}:/work" \
+  #           aquasec/trivy:latest image --input /work/image.tar \
+  #           --severity HIGH,CRITICAL --scanners vuln --no-progress \
+  #           --format table --output /work/trivy-report.txt
+  #         docker run --rm -v "${{ github.workspace }}:/work" \
+  #           aquasec/trivy:latest image --input /work/image.tar \
+  #           --severity HIGH,CRITICAL --scanners vuln --no-progress \
+  #           --format sarif --output /work/trivy.sarif || true
+  #         echo "## Trivy — scanner (HIGH,CRITICAL)" >> "$GITHUB_STEP_SUMMARY"
+  #         echo '```' >> "$GITHUB_STEP_SUMMARY"
+  #         tail -n 50 trivy-report.txt >> "$GITHUB_STEP_SUMMARY" || true
+  #         echo '```' >> "$GITHUB_STEP_SUMMARY"
+  #     - uses: actions/upload-artifact@v4
   #       with:
-  #         name: sbom
-  #         path: sbom.spdx.json
-  #         if-no-files-found: error
+  #         name: trivy
+  #         path: |
+  #           trivy-report.txt
+  #           trivy.sarif
 
 
+
+  sbom:
+  name: SBOM (Syft)
+  runs-on: ubuntu-latest
+  needs: build
+
+  steps:
+    - uses: actions/checkout@v4
+
+    - name: Download Docker image artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: docker-image
+        path: .
+
+    - name: Load Docker image
+      run: docker load -i image.tar
+
+    - name: Generate SBOM (SPDX JSON)
+      uses: anchore/sbom-action@v0
+      with:
+        image: app:ci
+        format: spdx-json
+        output-file: sbom.spdx.json
+        artifact-name: sbom.spdx.json
+
+    - name: Upload SBOM artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: sbom
+        path: sbom.spdx.json
+        if-no-files-found: error
 
   # sbom-report:
   #   name: SBOM Report (Syft)
@@ -300,56 +311,56 @@ jobs:
   #         project-version: 1.0.0
   #         scan: true
 
-  cve-lite:         
-    name: CVE Lite security fixes
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.repository.default_branch }}
-      - uses: OWASP/cve-lite-cli@v1
-        with:
-          fix: 'true'
-          create-pr: 'true'
+  # cve-lite:         
+  #   name: CVE Lite security fixes
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #       with:
+  #         ref: ${{ github.event.repository.default_branch }}
+  #     - uses: OWASP/cve-lite-cli@v1
+  #       with:
+  #         fix: 'true'
+  #         create-pr: 'true'
 
-  license-check:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+  # license-check:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
 
-      - name: Scan licenses
-        uses: anistark/feluda@v1.14.0
-        with:
-          fail-on-restrictive: false
-          fail-on-incompatible: false
+  #     - name: Scan licenses
+  #       uses: anistark/feluda@v1.14.0
+  #       with:
+  #         fail-on-restrictive: false
+  #         fail-on-incompatible: false
       
-      - name: Generate compliance files
-        run: |
-          echo "1" | feluda generate  # Auto-select NOTICE file
-          echo "2" | feluda generate  # Auto-select THIRD_PARTY_LICENSES file
+  #     - name: Generate compliance files
+  #       run: |
+  #         echo "1" | feluda generate  # Auto-select NOTICE file
+  #         echo "2" | feluda generate  # Auto-select THIRD_PARTY_LICENSES file
 
-      - name: Generate SBOM
-        run: |
-          feluda sbom spdx --output sbom.spdx.json
-          feluda sbom cyclonedx --output sbom.cyclonedx.json
+  #     - name: Generate SBOM
+  #       run: |
+  #         feluda sbom spdx --output sbom.spdx.json
+  #         feluda sbom cyclonedx --output sbom.cyclonedx.json
 
-      - name: Validate SBOM files
-        run: |
-          feluda sbom validate sbom.spdx.json --output sbom-spdx-validation.txt
-          feluda sbom validate sbom.cyclonedx.json --output sbom-cyclonedx-validation.txt
+  #     - name: Validate SBOM files
+  #       run: |
+  #         feluda sbom validate sbom.spdx.json --output sbom-spdx-validation.txt
+  #         feluda sbom validate sbom.cyclonedx.json --output sbom-cyclonedx-validation.txt
 
-      - name: Upload compliance artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: license-compliance
-          path: |
-            NOTICE
-            THIRD_PARTY_LICENSES.md
-            sbom.spdx.json
-            sbom.cyclonedx.json
-            sbom-spdx-validation.txt
-            sbom-cyclonedx-validation.txt
+  #     - name: Upload compliance artifacts
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: license-compliance
+  #         path: |
+  #           NOTICE
+  #           THIRD_PARTY_LICENSES.md
+  #           sbom.spdx.json
+  #           sbom.cyclonedx.json
+  #           sbom-spdx-validation.txt
+  #           sbom-cyclonedx-validation.txt
 
     
 
