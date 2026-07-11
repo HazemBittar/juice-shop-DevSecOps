@@ -287,17 +287,21 @@ jobs:
           path: sbom.spdx.json
           if-no-files-found: error
   
+  license-check:
+    name: License Check (FOSSA)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: FOSSA CLI
+        uses: fossa/fossa-action@v1
+        with:
+          api-key: ${{ secrets.FOSSA_API_KEY }}
+          project-name: juice-shop-devsecops
+          project-version: 1.0.0
+          scan: true
 
-name: CVE Lite security fixes
-on:
-  # schedule:
-  #   - cron: '0 6 * * 1'  # every Monday at 6am
-  workflow_dispatch:
-permissions:
-  contents: write
-  pull-requests: write
-jobs:
-  fix:
+  cve-lite:         
+    name: CVE Lite security fixes
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
