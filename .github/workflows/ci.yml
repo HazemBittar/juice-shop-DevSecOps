@@ -31,7 +31,7 @@ jobs:
         uses: hadolint/hadolint-action@v3.1.0
         with:
           dockerfile: Dockerfile
-          failure-threshold: info
+          
   
 
    # --------------------------------------------------------------------------
@@ -261,44 +261,44 @@ jobs:
 
 
 
-  sbom-report:
-    name: SBOM Report (Syft)
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - uses: actions/checkout@v4
+  # sbom-report:
+  #   name: SBOM Report (Syft)
+  #   runs-on: ubuntu-latest
+  #   needs: build
+  #   steps:
+  #     - uses: actions/checkout@v4
 
-      - name: Download Docker image artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: docker-image
-          path: .
+  #     - name: Download Docker image artifact
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: docker-image
+  #         path: .
 
-      - name: Generate SBOM (Syft) from saved image
-        run: |
-          docker run --rm -v "${{ github.workspace }}:/work" anchore/syft:latest \
-            docker-archive:/work/image.tar -o spdx-json \
-            echo "## SBOM Report (Syft)" >> "$GITHUB_STEP_SUMMARY" 
+  #     - name: Generate SBOM (Syft) from saved image
+  #       run: |
+  #         docker run --rm -v "${{ github.workspace }}:/work" anchore/syft:latest \
+  #           docker-archive:/work/image.tar -o spdx-json \
+  #           echo "## SBOM Report (Syft)" >> "$GITHUB_STEP_SUMMARY" 
 
-      - name: Upload SBOM artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: sbom
-          path: sbom.spdx.json
-          if-no-files-found: error
+  #     - name: Upload SBOM artifact
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: sbom
+  #         path: sbom.spdx.json
+  #         if-no-files-found: error
   
-  license-check:
-    name: License Check (FOSSA)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: FOSSA CLI
-        uses: fossa/fossa-action@v1
-        with:
-          api-key: ${{ secrets.FOSSA_API_KEY }}
-          project-name: juice-shop-devsecops
-          project-version: 1.0.0
-          scan: true
+  # license-check:
+  #   name: License Check (FOSSA)
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: FOSSA CLI
+  #       uses: fossa/fossa-action@v1
+  #       with:
+  #         api-key: ${{ secrets.FOSSA_API_KEY }}
+  #         project-name: juice-shop-devsecops
+  #         project-version: 1.0.0
+  #         scan: true
 
   cve-lite:         
     name: CVE Lite security fixes
@@ -311,3 +311,69 @@ jobs:
         with:
           fix: 'true'
           create-pr: 'true'
+
+  license-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Scan licenses
+        uses: anistark/feluda@v1
+        with:
+          fail-on-restrictive: false
+          fail-on-incompatible: false
+      
+      - name: Generate compliance files
+        run: |
+          echo "1" | feluda generate  # Auto-select NOTICE file
+          echo "2" | feluda generate  # Auto-select THIRD_PARTY_LICENSES file
+
+      - name: Generate SBOM
+        run: |
+          feluda sbom spdx --output sbom.spdx.json
+          feluda sbom cyclonedx --output sbom.cyclonedx.json
+
+      - name: Validate SBOM files
+        run: |
+          feluda sbom validate sbom.spdx.json --output sbom-spdx-validation.txt
+          feluda sbom validate sbom.cyclonedx.json --output sbom-cyclonedx-validation.txt
+
+      - name: Upload compliance artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: license-compliance
+          path: |
+            NOTICE
+            THIRD_PARTY_LICENSES.md
+            sbom.spdx.json
+            sbom.cyclonedx.json
+            sbom-spdx-validation.txt
+            sbom-cyclonedx-validation.txt
+
+    
+
+  depchecktest:
+    runs-on: ubuntu-latest
+    name: depecheck_test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Build project with Maven
+        run: mvn clean install
+      - name: Depcheck
+        uses: dependency-check/Dependency-Check_Action@main
+        id: Depcheck
+        with:
+          project: 'test'
+          path: '.'
+          format: 'HTML'
+          out: 'reports' # this is the default, no need to specify unless you wish to override it
+          args: >
+            --failOnCVSS 7
+            --enableRetired
+      - name: Upload Test results
+        uses: actions/upload-artifact@master
+        with:
+           name: Depcheck report
+           path: ${{github.workspace}}/reports
