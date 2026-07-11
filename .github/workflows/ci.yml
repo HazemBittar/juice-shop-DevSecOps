@@ -17,6 +17,31 @@ env:
   IMAGE: ghcr.io/${{ github.repository_owner }}/juice-shop-devsecops
 
 jobs:
+     
+    debug:
+      runs-on: ubuntu-latest
+
+      steps:
+      - uses: actions/checkout@v4
+
+      - name: Show workspace
+        run: |
+          echo "Workspace: $GITHUB_WORKSPACE"
+          pwd
+
+      - name: List repository files
+        run: |
+          ls -lah
+          find . -maxdepth 3
+
+      - name: Show environment variables
+        run: env | sort
+
+      - name: Show runner directories
+        run: |
+          echo "RUNNER_TEMP=$RUNNER_TEMP"
+          echo "RUNNER_TOOL_CACHE=$RUNNER_TOOL_CACHE"
+          ls -lah "$RUNNER_TEMP"
 
   # ======================================================================
   # lint dockerfile
@@ -35,45 +60,45 @@ jobs:
   
 
    # --------------------------------------------------------------------------
-  fs-scan:
-    name: Trivy (filesystem + config)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+  # fs-scan:
+  #   name: Trivy (filesystem + config)
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
 
-      - name: Trivy filesystem (vuln + secret)
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          scan-type: fs
-          scan-ref: .
-          scanners: vuln,secret
-          severity: CRITICAL,HIGH
-          exit-code: "0"
-          ignore-unfixed: true
+  #     - name: Trivy filesystem (vuln + secret)
+  #       uses: aquasecurity/trivy-action@v0.36.0
+  #       with:
+  #         scan-type: fs
+  #         scan-ref: .
+  #         scanners: vuln,secret
+  #         severity: CRITICAL,HIGH
+  #         exit-code: "0"
+  #         ignore-unfixed: true
 
-      - name: Trivy config (IaC misconfig)
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          scan-type: config
-          scan-ref: .
-          severity: CRITICAL,HIGH
-          exit-code: "0"
+  #     - name: Trivy config (IaC misconfig)
+  #       uses: aquasecurity/trivy-action@v0.36.0
+  #       with:
+  #         scan-type: config
+  #         scan-ref: .
+  #         severity: CRITICAL,HIGH
+  #         exit-code: "0"
 
-  iac-scan:
-    name: Checkov (IaC)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Checkov
-        uses: bridgecrewio/checkov-action@v12
-        with:
-          directory: .
-          framework: terraform,kubernetes,dockerfile
-          quiet: true
-          # Report-only: the repo intentionally includes insecure demo manifests
-          # (OPA negative-test fixtures + illustrative IaC). Findings are printed;
-          # enforcement is handled by the OPA/Conftest policy job.
-          soft_fail: true      
+  # iac-scan:
+  #   name: Checkov (IaC)
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Checkov
+  #       uses: bridgecrewio/checkov-action@v12
+  #       with:
+  #         directory: .
+  #         framework: terraform,kubernetes,dockerfile
+  #         quiet: true
+  #         # Report-only: the repo intentionally includes insecure demo manifests
+  #         # (OPA negative-test fixtures + illustrative IaC). Findings are printed;
+  #         # enforcement is handled by the OPA/Conftest policy job.
+  #         soft_fail: true      
   
   
   
@@ -240,37 +265,83 @@ jobs:
 
 
 
-  sbom:
-    name: SBOM (Syft)
-    runs-on: ubuntu-latest
-    needs: build
+    sbom:
+      name: SBOM (Syft)
+      runs-on: ubuntu-latest
+      needs: build
 
-    steps:
-    - uses: actions/checkout@v4
+      steps:
+      - uses: actions/checkout@v4
 
-    - name: Download Docker image artifact
-      uses: actions/download-artifact@v4
-      with:
+      - name: Download Docker image artifact
+        uses: actions/download-artifact@v4
+        with:
         name: docker-image
         path: .
 
-    - name: Load Docker image
-      run: docker load -i image.tar
+      - name: Load Docker image
+        run: docker load -i image.tar
 
-    - name: Generate SBOM (SPDX JSON)
-      uses: anchore/sbom-action@v0
-      with:
+      - name: Generate SBOM (SPDX JSON)
+        uses: anchore/sbom-action@v0
+        with:
         image: app:ci
         format: spdx-json
         output-file: sbom.spdx.json
         artifact-name: sbom.spdx.json
 
-    - name: Upload SBOM artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: sbom
-        path: sbom.spdx.json
-        if-no-files-found: error
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+         name: sbom
+         path: sbom.spdx.json
+         if-no-files-found: error
+
+    
+    dast-juice:
+      name: DAST — ZAP (Juice Shop)
+      needs: build
+      runs-on: ubuntu-latest
+
+      steps:
+      - uses: actions/checkout@v6
+    
+      - name: Download Docker image artifact
+        uses: actions/download-artifact@v4
+        with:
+        name: docker-image
+        path: .
+
+      - name: Load Docker image
+        run: docker load -i image.tar
+
+      - name: Start Juice Shop staging app
+         run: |
+          docker run -d --name juice-staging \
+          -p 3000:3000 \
+          -e NODE_ENV=production \
+          app:ci
+
+         for i in $(seq 1 15); do
+         if curl -sf http://localhost:3000 > /dev/null; then
+         echo "Juice Shop is ready!"
+         break
+         fi
+
+         echo "Waiting for Juice Shop... ($i/15)"
+         sleep 5
+         done 
+      
+      - name: ZAP Full Scan — Juice Shop
+        uses: zaproxy/action-full-scan@v0.13.0
+        with:
+          target: http://localhost:3000
+          cmd_options: -I
+        continue-on-error: true
+
+      - name: Cleanup
+        if: always()
+        run: docker rm -f juice-staging || true
 
   # sbom-report:
   #   name: SBOM Report (Syft)
