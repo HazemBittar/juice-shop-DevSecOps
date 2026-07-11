@@ -265,7 +265,7 @@ jobs:
 
 
 
-    sbom:
+  sbom:
       name: SBOM (Syft)
       runs-on: ubuntu-latest
       needs: build
@@ -298,7 +298,7 @@ jobs:
          if-no-files-found: error
 
     
-    dast-juice:
+  dast-juice:
       name: DAST — ZAP (Juice Shop)
       needs: build
       runs-on: ubuntu-latest
