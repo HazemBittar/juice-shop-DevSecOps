@@ -240,24 +240,24 @@ jobs:
 
 
 
-  sbom:
-    name: SBOM (Syft)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Generate SBOM (SPDX JSON)
-        uses: anchore/sbom-action@v0
-        with:
-          path: /work/image.tar
-          format: spdx-json
-          artifact-name: sbom.spdx.json
-          output-file: sbom.spdx.json
-      - name: Upload SBOM artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: sbom
-          path: sbom.spdx.json
-          if-no-files-found: error
+  # sbom:
+  #   name: SBOM (Syft)
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Generate SBOM (SPDX JSON)
+  #       uses: anchore/sbom-action@v0
+  #       with:
+  #         path: /work/image.tar
+  #         format: spdx-json
+  #         artifact-name: sbom.spdx.json
+  #         output-file: sbom.spdx.json
+  #     - name: Upload SBOM artifact
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: sbom
+  #         path: sbom.spdx.json
+  #         if-no-files-found: error
 
 
 
@@ -277,7 +277,8 @@ jobs:
       - name: Generate SBOM (Syft) from saved image
         run: |
           docker run --rm -v "${{ github.workspace }}:/work" anchore/syft:latest \
-            docker-archive:/work/image.tar -o spdx-json > /work/sbom.spdx.json
+            docker-archive:/work/image.tar -o spdx-json \
+            echo "## SBOM Report (Syft)" >> "$GITHUB_STEP_SUMMARY" 
 
       - name: Upload SBOM artifact
         uses: actions/upload-artifact@v4
@@ -286,3 +287,23 @@ jobs:
           path: sbom.spdx.json
           if-no-files-found: error
   
+
+name: CVE Lite security fixes
+on:
+  # schedule:
+  #   - cron: '0 6 * * 1'  # every Monday at 6am
+  workflow_dispatch:
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+      - uses: OWASP/cve-lite-cli@v1
+        with:
+          fix: 'true'
+          create-pr: 'true'
