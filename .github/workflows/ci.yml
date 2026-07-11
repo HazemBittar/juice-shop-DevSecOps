@@ -309,8 +309,8 @@ jobs:
       - name: Download Docker image artifact
         uses: actions/download-artifact@v4
         with:
-        name: docker-image
-        path: .
+         name: docker-image
+         path: .
 
       - name: Load Docker image
         run: docker load -i image.tar
